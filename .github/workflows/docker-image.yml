@@ -21,7 +21,7 @@ jobs:
     - name: Read project version
       id: get-version
       run: |
-        version=$(grep -oP '(?<=<Version>).*?(?=</Version>)' ClipFlow.Server/ClipFlow.Server.csproj)
+        version=$(grep -oP '(?<=<FileVersion>).*?(?=</FileVersion>)' ClipFlow.Server/ClipFlow.Server.csproj)
         if [ -z "$version" ]; then
           echo "Error: Unable to read version from ClipFlow.Server.csproj"
           exit 1
