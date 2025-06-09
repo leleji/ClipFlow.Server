@@ -2,7 +2,7 @@
 
 ## 安装指南
 
-需要下载[appsettings.json]([https://](https://raw.githubusercontent.com/leleji/ClipFlow.Server/refs/heads/master/ClipFlow.Server/appsettings.json))放到指定目录映射到/app/appsettings.json
+需要下载[appsettings.json](https://raw.githubusercontent.com/leleji/ClipFlow.Server/refs/heads/master/ClipFlow.Server/appsettings.json)放到指定目录映射到/app/appsettings.json
 
 #### Docker
 
