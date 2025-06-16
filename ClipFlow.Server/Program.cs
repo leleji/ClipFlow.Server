@@ -85,6 +85,8 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+
+app.MapGet("/", () => "OK");
 // ≈‰÷√WebSocket
 app.UseWebSockets(new WebSocketOptions
 {

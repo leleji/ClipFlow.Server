@@ -43,7 +43,7 @@ namespace ClipFlow.Server.Controllers
         [HttpPost("{type}")]
         [RequestSizeLimit(524288000)]
         [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
-        public async Task<ActionResult<ApiResponse<object>>> Upload(string type)
+        public async Task<ActionResult<ApiResponse<object>>> Upload(string type,ulong dataLength)
         {
             try
             {
@@ -63,9 +63,9 @@ namespace ClipFlow.Server.Controllers
                 var record = new ClipboardData
                 {
                     Uuid = Guid.NewGuid().ToString(),
-                    Type = Enum.Parse<ClipboardType>(type, true)
+                    Type = Enum.Parse<ClipboardType>(type, true),
+                    DataLength= dataLength
                 };
-                record.DataLength = contentLength;
 
                 // 保存文件时使用 UUID 作为前缀
                 var physicalFileName = $"{record.Uuid}.dat";
@@ -89,18 +89,6 @@ namespace ClipFlow.Server.Controllers
                 }
                 // 添加到历史记录
                 _clipboardManager.AddRecord(token, record);
-                if (_clipboardManager.GetHistory(token).Count > 20)
-                {
-                    var oldRecord = _clipboardManager.GetHistory(token).Dequeue();
-                    if (oldRecord.FileName != null)
-                    {
-                        var oldFile = Path.Combine(_fileStoragePath, oldRecord.FileName);
-                        if (System.IO.File.Exists(oldFile))
-                        {
-                            System.IO.File.Delete(oldFile);
-                        }
-                    }
-                }
 
                 // 获取当前连接的客户端ID并记录日志
                 var currentClientId = Request.Headers["X-Client-Id"].ToString();
@@ -114,10 +102,6 @@ namespace ClipFlow.Server.Controllers
                 await _webSocketManager.BroadcastToUserAsync(token, currentClientId, jsonbuffer);
 
                 return Ok(ApiResponse<object>.Success(new { uuid = record.Uuid }, "数据已同步"));
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(ApiResponse<object>.Error(401, ex.Message));
             }
             catch (Exception ex)
             {
@@ -138,49 +122,35 @@ namespace ClipFlow.Server.Controllers
         [HttpGet("file/{uuid}")]
         public ActionResult<ApiResponse<object>> GetFile(string uuid)
         {
-            try 
+            var token = Request.Headers["X-Auth-Token"].ToString();
+            var record = _clipboardManager.GetByUuid(token, uuid);
+            if (record == null)
             {
-                var token = Request.Headers["X-Auth-Token"].ToString();
-                var record = _clipboardManager.GetByUuid(token, uuid);
-                if (record == null)
-                {
-                    return NotFound(ApiResponse<object>.Error(404, "数据未找到"));
-                }
+                return NotFound(ApiResponse<object>.Error(404, "数据未找到"));
+            }
 
-                var physicalFileName = $"{uuid}.dat";
-                var filePath = Path.Combine(_fileStoragePath, physicalFileName);
-                if (!System.IO.File.Exists(filePath))
-                {
-                    return NotFound(ApiResponse<object>.Error(404, "文件未找到"));
-                }
-                return PhysicalFile(filePath, "application/octet-stream", record.FileName);
-            }
-            catch (UnauthorizedAccessException ex)
+            var physicalFileName = $"{uuid}.dat";
+            var filePath = Path.Combine(_fileStoragePath, physicalFileName);
+            if (!System.IO.File.Exists(filePath))
             {
-                return Unauthorized(ApiResponse<object>.Error(401, ex.Message));
+                return NotFound(ApiResponse<object>.Error(404, "文件未找到"));
             }
+            return PhysicalFile(filePath, "application/octet-stream");
         }
 
         [HttpGet]
         public ActionResult<ApiResponse<ClipboardData>> GetLatest([FromQuery] bool onlyText = false)
         {
-            try
+            var token = Request.Headers["X-Auth-Token"].ToString();
+            var latest = onlyText
+                ? _clipboardManager.GetLatestText(token)
+                : _clipboardManager.GetLatest(token);
+
+            if (latest == null)
             {
-                var token = Request.Headers["X-Auth-Token"].ToString();
-                var latest = onlyText 
-                    ? _clipboardManager.GetLatestText(token)
-                    : _clipboardManager.GetLatest(token);
-                
-                if (latest == null)
-                {
-                    return NotFound(ApiResponse<object>.Error(404, "暂无数据"));
-                }
-                return ApiResponse<ClipboardData>.Success(latest);
+                return NotFound(ApiResponse<object>.Error(404, "暂无数据"));
             }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(ApiResponse<object>.Error(401, ex.Message));
-            }
+            return ApiResponse<ClipboardData>.Success(latest);
         }
 
         [HttpGet("ws")]
