@@ -14,7 +14,7 @@ namespace ClipFlow.Server.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class ClipboardController : ControllerBase
+    public class ClipboardController : BaseController
     {
         private readonly ClipboardWebSocketManager _webSocketManager;
         private readonly ClipboardDataManager _clipboardManager;
@@ -47,7 +47,6 @@ namespace ClipFlow.Server.Controllers
         {
             try
             {
-                var token = Request.Headers["X-Auth-Token"].ToString();
                 var contentLength = (ulong)(Request.ContentLength ?? 0);
 
                 // 检查文件大小限制（仅当 MaxFileSize > 0 时）
@@ -88,18 +87,17 @@ namespace ClipFlow.Server.Controllers
                     await fileStream.FlushAsync();
                 }
                 // 添加到历史记录
-                _clipboardManager.AddRecord(token, record);
+                _clipboardManager.AddRecord(UserKet, record);
 
                 // 获取当前连接的客户端ID并记录日志
-                var currentClientId = Request.Headers["X-Client-Id"].ToString();
-                _logger.LogInformation($"Upload request from client: {currentClientId}, Token: {token}");
+                _logger.LogInformation($"Upload request from client: {ClientId}, ClientKet: {UserKet}");
 
                 // 通知其他客户端
                 var json = JsonSerializer.Serialize(record);
                 var jsonbuffer = Encoding.UTF8.GetBytes(json);
                 
-                _logger.LogInformation($"Broadcasting to other clients. Current client: {currentClientId}, Token: {token}");
-                await _webSocketManager.BroadcastToUserAsync(token, currentClientId, jsonbuffer);
+                _logger.LogInformation($"Broadcasting to other clients. Current client: {ClientId}, ClientKet: {UserKet}");
+                await _webSocketManager.BroadcastToUserAsync(UserKet, ClientId, jsonbuffer);
 
                 return Ok(ApiResponse<object>.Success(new { uuid = record.Uuid }, "数据已同步"));
             }
@@ -122,8 +120,7 @@ namespace ClipFlow.Server.Controllers
         [HttpGet("file/{uuid}")]
         public ActionResult<ApiResponse<object>> GetFile(string uuid)
         {
-            var token = Request.Headers["X-Auth-Token"].ToString();
-            var record = _clipboardManager.GetByUuid(token, uuid);
+            var record = _clipboardManager.GetByUuid(UserKet, uuid);
             if (record == null)
             {
                 return NotFound(ApiResponse<object>.Error(404, "数据未找到"));
@@ -141,10 +138,9 @@ namespace ClipFlow.Server.Controllers
         [HttpGet]
         public ActionResult<ApiResponse<ClipboardData>> GetLatest([FromQuery] bool onlyText = false)
         {
-            var token = Request.Headers["X-Auth-Token"].ToString();
             var latest = onlyText
-                ? _clipboardManager.GetLatestText(token)
-                : _clipboardManager.GetLatest(token);
+                ? _clipboardManager.GetLatestText(UserKet)
+                : _clipboardManager.GetLatest(UserKet);
 
             if (latest == null)
             {
@@ -159,19 +155,12 @@ namespace ClipFlow.Server.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task Socket()
         {
-            var connectionId = Request.Headers["X-Client-Id"].ToString();
-            var token = Request.Headers["X-Auth-Token"].ToString();
-            if (HttpContext.WebSockets.IsWebSocketRequest && !string.IsNullOrEmpty(connectionId) && !string.IsNullOrEmpty(token))
+            if (HttpContext.WebSockets.IsWebSocketRequest && !string.IsNullOrEmpty(ClientId) && !string.IsNullOrEmpty(UserKet))
             {
                 using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
                 try
                 {
-                    if (!_appSettings.Tokens.Contains(token))
-                    {
-                        throw new UnauthorizedAccessException("无效的访问令牌");
-                    }
-
-                    _webSocketManager.AddSocket(connectionId, webSocket, token);
+                    _webSocketManager.AddSocket(ClientId, webSocket, UserKet);
 
                     var buffer = new byte[1024 * 4];
                     while (webSocket.State == WebSocketState.Open)
@@ -185,7 +174,7 @@ namespace ClipFlow.Server.Controllers
                             
                             if (message == "ping")
                             {
-                                _webSocketManager.UpdatePing(connectionId);
+                                _webSocketManager.UpdatePing(ClientId);
                                 await webSocket.SendAsync(
                                     Encoding.UTF8.GetBytes("pong"),
                                     WebSocketMessageType.Text,
@@ -199,6 +188,7 @@ namespace ClipFlow.Server.Controllers
                         }
                         else if (result.MessageType == WebSocketMessageType.Close)
                         {
+                            _logger.LogInformation($"WebSocket closed. ClientId: {ClientId}, Reason: {result.CloseStatusDescription}");
                             break;
                         }
                     }
@@ -209,7 +199,7 @@ namespace ClipFlow.Server.Controllers
                 }
                 finally
                 {
-                    _webSocketManager.RemoveSocket(connectionId);
+                    _webSocketManager.RemoveSocket(ClientId);
                 }
             }
             else

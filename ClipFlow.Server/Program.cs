@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+
 
 // 添加 Kestrel 配置 
 builder.WebHost.ConfigureKestrel(options =>
@@ -25,11 +25,6 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(5);
 });
 
-// 配置 IIS 服务器限制（如果使用 IIS）
-builder.Services.Configure<IISServerOptions>(options =>
-{
-    options.MaxRequestBodySize = 524288000; // 500MB in bytes
-});
 
 // 配置控制器选项
 builder.Services.AddControllers(options =>
@@ -44,11 +39,6 @@ builder.Services.AddControllers(options =>
 
 });
 
-// 配置表单选项
-builder.Services.Configure<FormOptions>(options =>
-{
-    options.MultipartBodyLengthLimit = 524288000;
-});
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

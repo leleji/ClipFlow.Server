@@ -8,7 +8,6 @@ namespace ClipFlow.Server.Models
         public ClipboardType Type { get; set; }
         public string Uuid { get; set; }
         public ulong? DataLength { get; set; }
-        public string FileName { get; set; }
     }
 
     public enum ClipboardType
