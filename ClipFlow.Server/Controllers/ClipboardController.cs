@@ -47,15 +47,15 @@ namespace ClipFlow.Server.Controllers
         {
             try
             {
+                var setting = _appSettings.TokenSettings.FirstOrDefault(t => t.Token == AuthToken);
                 var contentLength = (ulong)(Request.ContentLength ?? 0);
-
                 // 检查文件大小限制（仅当 MaxFileSize > 0 时）
-                if (_appSettings.MaxFileSize > 0)
+                if (setting.MaxFileSize > 0)
                 {
-                    var maxSizeInBytes = _appSettings.MaxFileSize * 1024 * 1024; // 转换为字节
+                    var maxSizeInBytes = setting.MaxFileSize * 1024 * 1024; // 转换为字节
                     if (contentLength > maxSizeInBytes)
                     {
-                        return BadRequest(ApiResponse<object>.Error(413, $"文件大小超过限制。最大允许: {_appSettings.MaxFileSize}MB，当前文件: {contentLength / 1024.0 / 1024.0:F2}MB"));
+                        return BadRequest(ApiResponse<object>.Error(413, $"文件大小超过限制。最大允许: {setting.MaxFileSize}MB，当前文件: {contentLength / 1024.0 / 1024.0:F2}MB"));
                     }
                 }
 
@@ -90,13 +90,11 @@ namespace ClipFlow.Server.Controllers
                 _clipboardManager.AddRecord(UserKet, record);
 
                 // 获取当前连接的客户端ID并记录日志
-                _logger.LogInformation($"Upload request from client: {ClientId}, ClientKet: {UserKet}");
+                _logger.LogInformation($"上传请求来自 client: {ClientId}, ClientKet: {UserKet}");
 
                 // 通知其他客户端
                 var json = JsonSerializer.Serialize(record);
                 var jsonbuffer = Encoding.UTF8.GetBytes(json);
-                
-                _logger.LogInformation($"Broadcasting to other clients. Current client: {ClientId}, ClientKet: {UserKet}");
                 await _webSocketManager.BroadcastToUserAsync(UserKet, ClientId, jsonbuffer);
 
                 return Ok(ApiResponse<object>.Success(new { uuid = record.Uuid }, "数据已同步"));

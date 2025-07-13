@@ -3,6 +3,9 @@ using ClipFlow.Server.Middleware;
 using ClipFlow.Server.Models;
 using ClipFlow.Server.Services;
 using Microsoft.AspNetCore.Http.Features;
+using System.Diagnostics;
+using System.Net;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +26,7 @@ builder.WebHost.ConfigureKestrel(options =>
     // 增加保持活动超时
     options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(10);
     options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(5);
+
 });
 
 
@@ -76,7 +80,9 @@ app.UseAuthorization();
 app.MapControllers();
 
 
-app.MapGet("/", () => "OK");
+app.MapGet("/", () => { 
+    return $"Version:{FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).FileVersion}"; 
+});
 // 配置WebSocket
 app.UseWebSockets(new WebSocketOptions
 {
@@ -84,3 +90,5 @@ app.UseWebSockets(new WebSocketOptions
 });
 
 app.Run();
+
+

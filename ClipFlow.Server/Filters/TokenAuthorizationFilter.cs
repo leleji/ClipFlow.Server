@@ -26,7 +26,8 @@ namespace ClipFlow.Server.Filters
         }
         private bool ValidateToken(string token)
         {
-            return !string.IsNullOrEmpty(token) && _appSettings.Tokens.Contains(token);
+            return !string.IsNullOrEmpty(token) &&
+          _appSettings.TokenSettings.Any(t => t.Token == token);
         }
     }
 } 

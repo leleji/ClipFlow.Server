@@ -29,7 +29,7 @@ namespace ClipFlow.Server.Services
             // 启动心跳检查
             _ = CheckHeartbeat(connectionId);
             
-            _logger.LogInformation($"WebSocket connection added. ID: {connectionId}, UserKey: {userKey}");
+            _logger.LogInformation($"已添加WebSocket连接. ID: {connectionId}, UserKey: {userKey}");
         }
 
         public void RemoveSocket(string connectionId)
@@ -37,7 +37,7 @@ namespace ClipFlow.Server.Services
             _sockets.TryRemove(connectionId, out _);
             _userKeyMap.TryRemove(connectionId, out _);
             _lastPingTime.TryRemove(connectionId, out _);
-            _logger.LogInformation($"WebSocket connection removed. ID: {connectionId}");
+            _logger.LogInformation($"WebSocket连接已删除. ID: {connectionId}");
         }
 
         public void UpdatePing(string connectionId)
@@ -87,7 +87,7 @@ namespace ClipFlow.Server.Services
                              uk == userKey && 
                              kvp.Key != excludeConnectionId)
                 .Select(kvp => SendAsync(kvp.Value, message));
-
+            _logger.LogInformation($"向 userKey：{userKey}. 发送剪贴板变动广播");
             await Task.WhenAll(tasks);
         }
 
